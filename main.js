@@ -1,4 +1,4 @@
-import Menu from "./scenes/Menu.Js"
+import Menu from "./scenes/Menu.js"
 import Game from './scenes/Game.js';
 
 // Create a new Phaser config object
