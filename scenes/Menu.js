@@ -17,7 +17,7 @@ export default class Menu extends Phaser.Scene {
     this.load.image("AjustesRosa", "public/assets/AjustesRosa.png");
 
     this.load.image("FondoBoton", "public/assets/FondoBoton.png");
-    this.load.image("Fondo", "public/assets/fondo2.jpg");
+    this.load.image("Fondo", "public/assets/fondo.jpg");
   }
 
   create() {

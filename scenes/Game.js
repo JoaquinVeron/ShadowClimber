@@ -1,306 +1,265 @@
-// URL to explain PHASER scene: https://rexrainbow.github.io/phaser3-rex-notes/docs/site/scene/
-
 export default class Game extends Phaser.Scene {
   constructor() {
     super("game");
   }
 
   init() {
-  // Estado general
-  this.puedeSaltar = false;
-  this.overlapsEdificios = [];
-  this.tiempoSalidaOverlap = null; // Momento en que dejó de tocar un edificio
-  this.delayCaida = 100; // ms antes de activar animación "caida"
-  this.tiempoAcumulado = 0;
+    // Estado general
+    this.puedeSaltar = false;
+    this.overlapsEdificios = [];
+    this.tiempoSalidaOverlap = null; // Momento en que dejó de tocar un edificio
+    this.delayCaida = 100; // ms antes de activar animación "caida"
 
-  // Cronómetro y puntaje
-  this.tiempoInicial = 0;
-  this.textoCronometro = null;
-  this.marcoCronometro = null;
-  this.puntaje = 0;
-  this.puntajeBaseMetros = 0;
-  this.puntajeBaseTiempo = 0;
-  this.textoPuntaje = null;
-  this.segundosPrevios = 0;
-  this.metros = 0;
-  this.metrosPrevios = 0;
+    // Velocidad de cámara
+    this.camSpeed = 200;
+    this.maxSpeed = 400;
+    this.duration = 180;
+    this.increment = (this.maxSpeed - this.camSpeed) / this.duration;
 
-  // Velocidad de cámara
-  this.camSpeed = 200;
-  this.maxSpeed = 400;
-  this.duration = 180;
-  this.increment = (this.maxSpeed - this.camSpeed) / this.duration;
+    // Velocidad ninja
+    this.ninjaSpeedBase = 445;
+    this.ninjaSpeedMax = 690;
+    this.ninjaSpeedIncrement = (this.ninjaSpeedMax - this.ninjaSpeedBase) / this.duration;
+    this.ninjaCurrentSpeed = this.ninjaSpeedBase;
 
-  // Velocidad ninja
-  this.ninjaSpeedBase = 445;
-  this.ninjaSpeedMax = 690;
-  this.ninjaSpeedIncrement = (this.ninjaSpeedMax - this.ninjaSpeedBase) / this.duration;
-  this.ninjaCurrentSpeed = this.ninjaSpeedBase;
+    // Animaciones
+    this.animFrameRateBase = 8;
+    this.animFrameRateMax = 12;
+    this.animDuration = 180;
+    this.animFrameRateIncrement = (this.animFrameRateMax - this.animFrameRateBase) / this.animDuration;
+    this.animFrameRateActual = this.animFrameRateBase;
+    this.animacionActual = null;
 
-  // Animaciones
-  this.animFrameRateBase = 8;
-  this.animFrameRateMax = 12;
-  this.animDuration = 180;
-  this.animFrameRateIncrement = (this.animFrameRateMax - this.animFrameRateBase) / this.animDuration;
-  this.animFrameRateActual = this.animFrameRateBase;
-  this.animacionActual = null;
+    // Sigilo
+    this.tieneSigilo = false;
+    this.sigiloDuration = 5000;
+    this.sigiloEndTime = 0;
 
-  // Sigilo
-  this.tieneSigilo = false;
-  this.sigiloDuration = 5000;
-  this.sigiloEndTime = 0;
+    // Luz
+    this.luzOffset = 0;
+    this.luzBaseY = this.cameras.main.height - 15;
+    this.luzOscilacion = 20;
 
-  // Luz
-  this.luzOffset = 0;
-  this.luzBaseY = this.cameras.main.height - 15;
-  this.luzOscilacion = 20;
+    // Menú pausa
+    this.menuPausaFondo = null;
+    this.botonReiniciar = null;
+    this.botonSalir = null;
 
-  // Menú pausa
-  this.menuPausaFondo = null;
-  this.botonReiniciar = null;
-  this.botonSalir = null;
-}
+    // Variables de estado general
+    this.gameOver = false;
+    this.gameOverText = null;
 
+    this.metros = 0;
+    this.metrosVelInicial = 2;   // m/s
+    this.metrosVelFinal = 6;     // m/s
+    this.metrosDuracion = 180;   // segundos
+    this.metrosTiempo = 0;       // tiempo acumulado en segundos
+
+    // Dinero
+    this.dinero = 0;
+
+    //Logro
+    this.logroMostrado = false;    // Para controlar que solo aparezca una vez
+this.teclasArribaAbajo = null; // Para capturar la combinación de teclas
+this.logroImagen = null;       // Referencia a la imagen del logro
+this.logroSonido = null;       // Sonido exclusivo del logro
+
+  }
 
   preload() {
-  // Tilemaps
-  this.load.tilemapTiledJSON('mapa', './public/tilemap/mapa.json');
+    // Tilemaps
+    this.load.tilemapTiledJSON('mapa', './public/tilemap/mapa.json');
 
-  // Imágenes estáticas
-  this.load.image("!", "public/assets/!.png")
-  this.load.image("altura", "public/assets/altura.png")
-  this.load.image('BotonPausa', 'public/assets/BotonPausa.png');
-  this.load.image('BotonPlay', 'public/assets/BotonPlay.png');
-  this.load.image('cubo', 'public/assets/cuadrado.png');
-  this.load.image('dude', 'public/assets/Caida.png');
-  this.load.image('edificio', 'public/assets/edificio.png');
-  this.load.image('fondo', 'public/assets/fondo2.jpg');
-  this.load.image("FondoMenu", "public/assets/FondoMenu.png");
-  this.load.image('jarron', 'public/assets/jarron.png');
-  this.load.image('luz', 'public/assets/luz.png');
-  this.load.image("marcolargo", "public/assets/MarcoLargo.png");
-  this.load.image('quieto_der', 'public/assets/quieto_der.png');
-  this.load.image('quieto_izq', 'public/assets/quieto_izq.png');
-  this.load.image("ReiniciarNegro", "public/assets/ReiniciarNegro.png");
-  this.load.image("ReiniciarRosa", "public/assets/ReiniciarRosa.png");
-  this.load.image('reloj', 'public/assets/reloj.png');
-  this.load.image("shuriken", "public/assets/shuriken.png");
-  this.load.image("SalirNegro", "public/assets/SalirNegro.png");
-  this.load.image("SalirRosa", "public/assets/SalirRosa.png");
-  this.load.image('sigilo', 'public/assets/sigilo.png');
-  this.load.image('sierra', 'public/assets/sierra.png');
-  this.load.image('Ventana', './public/assets/Ventana.png');
+    // Imágenes estáticas
+    this.load.image("!", "public/assets/!.png");
+    this.load.image("altura", "public/assets/altura.png");
+    this.load.image('BotonPausa', 'public/assets/BotonPausa.png');
+    this.load.image('BotonPlay', 'public/assets/BotonPlay.png');
+    this.load.image('brillo', 'public/assets/si.png');
+    this.load.image('cubo', 'public/assets/cuadrado.png');
+    this.load.image('dude', 'public/assets/Caida.png');
+    this.load.image('edificio', 'public/assets/edificio.png');
+    this.load.image('fondo', 'public/assets/fondo.jpg');
+    this.load.image("FondoMenu", "public/assets/FondoMenu.png");
+    this.load.image('jarron', 'public/assets/jarron.png');
+    this.load.image('jarronoro', 'public/assets/jarron2.png');
+    this.load.image("Logro", "public/assets/LogroJuego.png");
+    this.load.image('luz', 'public/assets/luz.png');
+    this.load.image("marcolargo", "public/assets/MarcoLargo2.png");
+    this.load.image('quieto_der', 'public/assets/quieto_der.png');
+    this.load.image('quieto_izq', 'public/assets/quieto_izq.png');
+    this.load.image("ReiniciarNegro", "public/assets/ReiniciarNegro.png");
+    this.load.image("ReiniciarRosa", "public/assets/ReiniciarRosa.png");
+    this.load.image('reloj', 'public/assets/reloj.png');
+    this.load.image("shuriken", "public/assets/shuriken.png");
+    this.load.image("SalirNegro", "public/assets/SalirNegro.png");
+    this.load.image("SalirRosa", "public/assets/SalirRosa.png");
+    this.load.image('sigilo', 'public/assets/sigilo.png');
+    this.load.image('sierra', 'public/assets/sierra.png');
+    this.load.image('Ventana', './public/assets/Ventanas.png');
 
-  // Spritesheets
-  this.load.spritesheet('animacion_der', 'public/assets/animacion_der.png', {
-    frameWidth: 196,
-    frameHeight: 204
-  });
-  this.load.spritesheet('animacion_izq', 'public/assets/animacion_Izq.png', {
-    frameWidth: 196,
-    frameHeight: 204
-  });
+    // Spritesheets
+    this.load.spritesheet('animacion_der', 'public/assets/animacion_der.png', {
+      frameWidth: 196,
+      frameHeight: 204
+    });
+    this.load.spritesheet('animacion_izq', 'public/assets/animacion_Izq.png', {
+      frameWidth: 196,
+      frameHeight: 204
+    });
 
-  //Musica
-  this.load.audio('MusicaJuego', 'public/assets/MusicaJuego.mp3');
-  this.load.audio('MusicaMenu', 'public/assets/MusicaMenu.mp3');
-
-  //Sonidos
-  this.load.audio("perder1", "public/assets/perder1.mp3");
-  this.load.audio("perder2", "public/assets/perder2.mp3");
-  this.load.audio("perder3", "public/assets/perder3.mp3");
-  this.load.audio("perder4", "public/assets/perder4.mp3");
-}
+    // Musica
+    this.load.audio('MusicaJuego', 'public/assets/MusicaJuego.mp3');
+    this.load.audio('MusicaMenu', 'public/assets/MusicaMenu.mp3');
+    this.load.audio("logroSonido", "public/assets/sonidologro.mp3");
+  }
 
   create() {
+    // --- MÚSICA ---
+    this.musicaJuego = this.sound.add('MusicaJuego', { loop: true, volume: 0.5 });
+    this.musicaMenu = this.sound.add('MusicaMenu', { loop: true, volume: 0.5 });
 
-  // --- MÚSICA ---
-  this.musicaJuego = this.sound.add('MusicaJuego', { loop: true, volume: 0.5 });
-  this.musicaMenu = this.sound.add('MusicaMenu', { loop: true, volume: 0.5 });
+    this.musicaJuego.play();
 
-  this.musicaJuego.play();
+    // --- CONFIGURACIÓN INICIAL Y MAPA ---
+    this.map = this.make.tilemap({ key: 'mapa' });
+    const tileset = this.map.addTilesetImage('Ventanas', 'Ventana');
+    const fondo = this.map.createLayer('Edificios', tileset, 0, 0);
+    this.cameras.main.setBackgroundColor("#00CCFF");
 
-  //Sonidos de perder
-  this.sonidosGameOver = [
-  this.sound.add('perder1'),
-  this.sound.add('perder2'),
-  this.sound.add('perder3'),
-  this.sound.add('perder4')
-];
+    const centerX = this.cameras.main.width / 2;
+    const centerY = this.cameras.main.height / 2;
 
+    this.add.image(centerX, centerY, "fondo").setScale(2.2).setScrollFactor(0.01);
+    this.add.image(centerX, centerY, "brillo").setScale(1).setScrollFactor(0.01);
 
-  // --- CONFIGURACIÓN INICIAL Y MAPA ---
-  this.map = this.make.tilemap({ key: 'mapa' });
-  const tileset = this.map.addTilesetImage('Ventanas', 'Ventana');
-  const fondo = this.map.createLayer('Edificios', tileset, 0, 0);
-  this.cameras.main.setBackgroundColor("#00CCFF");
+    // --- LUZ ---
+    this.luz = this.add.image(this.cameras.main.width / 2, this.cameras.main.height - 25, "luz")
+      .setDepth(1)
+      .setScale(1)
+      .setScrollFactor(0)
+      .setAlpha(1);
 
-  const centerX = this.cameras.main.width / 2;
-  const centerY = this.cameras.main.height / 2;
+    // --- ANIMACIONES ---
+    this.crearAnimaciones();
 
-  this.add.image(centerX, centerY, "fondo").setScale(2).setScrollFactor(0.01);
+    // --- PERSONAJE ---
+    const ninja = this.physics.add.sprite(centerX, centerY, "dude")
+      .setCollideWorldBounds(false)
+      .setScale(0.4)
+      .refreshBody();
+    ninja.setVelocityY(-this.ninjaCurrentSpeed * 1.2);
+    this.ninja = ninja;
 
-  // --- LUZ ---
-  this.luz = this.add.image(this.cameras.main.width / 2, this.cameras.main.height - 50, "luz")
-    .setDepth(1)
-    .setScale(1);
+    // --- OVERLAPS EDIFICIOS ---
+    this.edificio1Overlap = this.physics.add.image(0, 360, "cubo").setScale(2, 11.5).refreshBody();
+    this.edificio1Overlap.setSize(this.edificio1Overlap.displayWidth + 5, this.edificio1Overlap.displayHeight + 5).setVisible(false);
 
-  // --- ANIMACIONES ---
-  this.crearAnimaciones();
+    this.edificio2Overlap = this.physics.add.image(1280, 360, "cubo").setScale(2, 11.5).refreshBody();
+    this.edificio2Overlap.setSize(this.edificio2Overlap.displayWidth + 9, this.edificio2Overlap.displayHeight + 7).setVisible(false);
 
-  // --- PERSONAJE ---
-  const ninja = this.physics.add.sprite(centerX, centerY, "dude")
-    .setCollideWorldBounds(false)
-    .setScale(0.4)
-    .refreshBody();
-  ninja.setVelocityY(-this.ninjaCurrentSpeed * 1.2);
-  this.ninja = ninja;
+    this.physics.add.overlap(ninja, this.edificio1Overlap, () => this.puedeSaltar = true);
+    this.physics.add.overlap(ninja, this.edificio2Overlap, () => this.puedeSaltar = true);
 
-  // --- OVERLAPS EDIFICIOS ---
-  this.edificio1Overlap = this.physics.add.image(0, 360, "cubo").setScale(2, 11.5).refreshBody();
-  this.edificio1Overlap.setSize(this.edificio1Overlap.displayWidth + 5, this.edificio1Overlap.displayHeight + 5).setVisible(false);
+    // --- INPUT ---
+    this.cursors = this.input.keyboard.createCursorKeys();
 
-  this.edificio2Overlap = this.physics.add.image(1280, 360, "cubo").setScale(2, 11.5).refreshBody();
-  this.edificio2Overlap.setSize(this.edificio2Overlap.displayWidth + 9, this.edificio2Overlap.displayHeight + 7).setVisible(false);
+    // --- JARRONES ---
+    this.jarrones = this.physics.add.group({ defaultKey: "jarron", collideWorldBounds: false });
+    this.time.addEvent({
+      delay: Phaser.Math.Between(3000, 7000),
+      callback: this.iniciarJarrones,
+      callbackScope: this
+    });
 
-  this.physics.add.overlap(ninja, this.edificio1Overlap, () => this.puedeSaltar = true);
-  this.physics.add.overlap(ninja, this.edificio2Overlap, () => this.puedeSaltar = true);
+    this.physics.add.overlap(this.ninja, this.jarrones, this.recogerJarron, null, this);
 
-  // --- INPUT ---
-  this.cursors = this.input.keyboard.createCursorKeys();
+    // --- SIGILO ---
+    this.sigilos = this.physics.add.group({ defaultKey: "sigilo", collideWorldBounds: false });
+    this.tieneSigilo = false;
 
-  // --- JARRONES ---
-  this.jarrones = this.physics.add.group({ defaultKey: "jarron", collideWorldBounds: false });
-  this.time.addEvent({
-    delay: Phaser.Math.Between(3000, 7000),
-    callback: this.iniciarJarrones,
-    callbackScope: this
-  });
+    this.physics.add.overlap(this.ninja, this.sigilos, this.activarSigilo, null, this);
+    this.time.addEvent({
+      delay: Phaser.Math.Between(5000, 10000),
+      callback: this.generarSigilo,
+      callbackScope: this
+    });
 
-  this.physics.add.overlap(this.ninja, this.jarrones, this.recogerJarron, null, this);
+    this.sigiloBarBg = this.add.rectangle(centerX, 700, 950, 24, 0x000000, 0.5).setScrollFactor(0).setDepth(1000).setVisible(false);
+    this.sigiloBar = this.add.rectangle(centerX - 473, 700, 946, 20, 0x00ff00).setOrigin(0, 0.5).setScrollFactor(0).setDepth(1001).setVisible(false);
+    this.sigiloBarFullWidth = 946;
 
-  // --- SIGILO ---
-  this.sigilos = this.physics.add.group({ defaultKey: "sigilo", collideWorldBounds: false });
-  this.tieneSigilo = false;
+    // --- CÁMARA ---
+    this.cameras.main.startFollow(this.ninja, false, 0, 1);
+    this.cameras.main.setLerp(0, 1);
+    this.cameras.main.setBounds(0, -100000000, this.cameras.main.width, 10000000000);
+    this.maxCamY = this.ninja.y;
+    this.cameras.main.stopFollow();
 
-  this.physics.add.overlap(this.ninja, this.sigilos, this.activarSigilo, null, this);
-  this.time.addEvent({
-    delay: Phaser.Math.Between(5000, 10000),
-    callback: this.generarSigilo,
-    callbackScope: this
-  });
+    fondo.setCollisionByProperty({ Colisionable: true });
+    this.physics.add.collider(ninja, fondo);
 
-  this.sigiloBarBg = this.add.rectangle(centerX, 700, 950, 24, 0x000000, 0.5).setScrollFactor(0).setDepth(1000).setVisible(false);
-  this.sigiloBar = this.add.rectangle(centerX - 473, 700, 946, 20, 0x00ff00).setOrigin(0, 0.5).setScrollFactor(0).setDepth(1001).setVisible(false);
-  this.sigiloBarFullWidth = 946;
+    // --- TILEMAP INFINITO ---
+    this.tilemapLayers = [];
+    this.tilemapHeightPx = 24 * 32;
+    this.crearNuevaCapaTilemap(0);
 
-  // --- ESTADO GENERAL ---
-  this.gameOver = false;
-  this.gameOverText = null;
+    // --- PAUSA ---
+    this.configurarBotonPausa();
 
-  // --- CÁMARA ---
-  this.cameras.main.startFollow(this.ninja, false, 0, 1);
-  this.cameras.main.setLerp(0, 1);
-  this.cameras.main.setBounds(0, -100000000, this.cameras.main.width, 10000000000);
-  this.maxCamY = this.ninja.y;
-  this.cameras.main.stopFollow();
+    // --- SIERRAS ---
+    this.time.addEvent({
+      delay: Phaser.Math.Between(500, 4000),  // retraso inicial aleatorio
+      callback: this.generarSierraAleatoria,
+      callbackScope: this
+    });
 
-  fondo.setCollisionByProperty({ Colisionable: true });
-  this.physics.add.collider(ninja, fondo);
+    // --- SHURIKENS --- iniciar con retraso aleatorio
+    this.time.addEvent({
+      delay: Phaser.Math.Between(15000, 25000),
+      callback: this.generarLluviaShurikens,
+      callbackScope: this
+    });
 
-  // --- TILEMAP INFINITO ---
-  this.tilemapLayers = [];
-  this.tilemapHeightPx = 24 * 32;
-  this.crearNuevaCapaTilemap(0);
+    // --- MARCO ---
+this.marco = this.add.image(30, 30, "altura")
+  .setOrigin(0, 0)
+  .setScrollFactor(0)
+  .setScale(0.025)
+  .setDepth(2);
 
-  // --- PAUSA ---
-  this.configurarBotonPausa();
-
-  // --- SIERRAS --- 
-  this.time.addEvent({
-    delay: Phaser.Math.Between(500, 4000),  // retraso inicial aleatorio
-    callback: this.generarSierraAleatoria,
-    callbackScope: this
-  });
-
-  // --- SHURIKENS --- iniciar con retraso aleatorio
-  this.time.addEvent({
-    delay: Phaser.Math.Between(15000, 25000),
-    callback: this.generarLluviaShurikens,
-    callbackScope: this
-  });
-
-  // --- CRONÓMETRO ---
-  const baseX = 50;
-  const baseY = 50;
-
-// Guardar tiempo inicial
-this.tiempoInicial = this.time.now;
-
-// Crear marco (por ejemplo con tu sprite "marcolargo")
-this.marcoCronometro = this.add.image(baseX, baseY, "marcolargo")
-.setOrigin(0, 0.5)
-.setDepth(999)
-.setScrollFactor(0);
-
-// Crear texto
-this.textoCronometro = this.add.text(baseX, baseY, '0.00s', {
-  fontSize: '32px',
-  fill: '#fff',
-  fontFamily: 'Consolas'
+// --- TEXTO ---
+this.contadorMetros = this.add.text(0, 0, "0m", {
+  fontSize: "24px",
+  color: "#ffffff",
+  fontFamily: "American Jets",
+  align: "center",
+  stroke: "#000000",
+  strokeThickness: 3
 })
-.setOrigin(0, 0.5)
-.setDepth(1000)
-.setScrollFactor(0);
+  .setOrigin(0.5, 0.5)
+  .setScrollFactor(0)
+  .setDepth(10);
 
-// Ajustar escala inicial
-this.marcoCronometro.displayWidth = this.textoCronometro.width + 20; // margen extra
-this.marcoCronometro.displayHeight = this.textoCronometro.height + 10; // opcional
+this.contadorMetros.x = this.marco.x + this.marco.displayWidth / 2;
+this.contadorMetros.y = this.marco.y + this.marco.displayHeight + 10; // 10 píxeles debajo
 
-// --- METROS ---
-const metrosX = 50; // Puedes cambiar la posición si querés
-const metrosY = 100;
+//LOGRO
+this.teclasArribaAbajo = this.input.keyboard.addKeys({
+  arriba1: Phaser.Input.Keyboard.KeyCodes.W,
+  arriba2: Phaser.Input.Keyboard.KeyCodes.UP,
+  abajo1: Phaser.Input.Keyboard.KeyCodes.S,
+  abajo2: Phaser.Input.Keyboard.KeyCodes.DOWN
+});
 
-this.textoMetros = this.add.text(metrosX, metrosY, '0m', {
-  fontSize: '32px',
-  fill: '#fff',
-  fontFamily: 'Consolas'
-})
-.setOrigin(0, 0.5)
-.setDepth(1000)
-.setScrollFactor(0);
+this.logroSonido = this.sound.add("logroSonido");
 
-// Marco para metros, si querés usar el mismo marco gráfico
-this.marcoMetros = this.add.image(metrosX, metrosY, "marcolargo")
-  .setOrigin(0, 0.5)
-  .setDepth(999)
-  .setScrollFactor(0);
+const cam = this.cameras.main;
+const startX = cam.width + 150; // fuera de pantalla a la derecha
+const posY = cam.height - 100;  // abajo un poco
 
-// Ajustar tamaño inicial
-this.marcoMetros.displayWidth = this.textoMetros.width + 40;
-this.marcoMetros.displayHeight = this.textoMetros.height + 10;
+this.logroImagen = this.add.image(startX, posY, "Logro").setScrollFactor(0).setDepth(200).setVisible(false);
 
-//PUNTOS
-const baseXPuntaje = 50;
-const baseYPuntaje = 150;
-
-this.marcoPuntaje = this.add.image(baseXPuntaje, baseYPuntaje, "marcolargo")
-  .setOrigin(0, 0.5)
-  .setDepth(999)
-  .setScrollFactor(0);
-
-this.textoPuntaje = this.add.text(baseXPuntaje, baseYPuntaje, '0 pts', {
-  fontSize: '32px',
-  fill: '#fff',
-  fontFamily: 'Consolas'
-})
-.setOrigin(0, 0.5)
-.setDepth(1000)
-.setScrollFactor(0);
-
-// Ajustar ancho inicial
-this.marcoPuntaje.displayWidth = this.textoPuntaje.width + 20;
-this.marcoPuntaje.displayHeight = this.textoPuntaje.height + 10;
 
 }
 
@@ -313,7 +272,6 @@ actualizarMusica() {
 
   if (!this.pausado) {
     if (!this.musicaJuego.isPlaying) {
-      if (this.musicaMenu.isPlaying) this.musicaMenu.pause();
       this.musicaJuego.resume();
     }
   } else {
@@ -457,8 +415,16 @@ iniciarJarrones() {
     const x = Phaser.Math.Between(500, this.cameras.main.width - 500);
     const y = cam.scrollY - Phaser.Math.Between(50, 150);
 
-    const jarron = this.jarrones.create(x, y, "jarron").setVelocityY(Phaser.Math.Between(100, 200)).setScale(1.5);
+    // Probabilidad 10% de jarrón oro
+    const esOro = Phaser.Math.Between(1, 10) === 1;
+
+    // Crear jarrón, asignando textura y propiedad según tipo
+    const key = esOro ? "jarronoro" : "jarron";
+    const jarron = this.jarrones.create(x, y, key).setVelocityY(Phaser.Math.Between(100, 200)).setScale(1.5);
     jarron.setBounce(0).setAngularVelocity(Phaser.Math.Between(-500, 500));
+
+    // Guardamos en el jarrón si es oro o no, para usar en el overlap
+    jarron.isOro = esOro;
 
     this.time.addEvent({
       delay: Phaser.Math.Between(3000, 7000),
@@ -468,6 +434,7 @@ iniciarJarrones() {
   };
   crearJarron();
 }
+
 
 // --- FUNCIONES PARA TILEMAP INFINITO ---
 
@@ -487,12 +454,12 @@ crearOverlapsEdificios(offsetY) {
   const edificio1Overlap = this.physics.add.staticImage(0, offsetY + 360, "cubo");
   edificio1Overlap.setScale(5, 11.5).refreshBody();
   edificio1Overlap.setSize(edificio1Overlap.displayWidth + 5, edificio1Overlap.displayHeight + 5);
-  edificio1Overlap.setVisible(false);
+  edificio1Overlap.setVisible(true);
 
   const edificio2Overlap = this.physics.add.staticImage(1280, offsetY + 360, "cubo");
   edificio2Overlap.setScale(5, 11.5).refreshBody();
   edificio2Overlap.setSize(edificio2Overlap.displayWidth + 7, edificio2Overlap.displayHeight + 7);
-  edificio2Overlap.setVisible(false);
+  edificio2Overlap.setVisible(true);
 
   this.overlapsEdificios.push({ edificio1Overlap, edificio2Overlap, offsetY });
 
@@ -525,6 +492,7 @@ generarSigilo() {
   const y = cam.scrollY - Phaser.Math.Between(100, 300);
 
   const sigilo = this.sigilos.create(x, y, "sigilo");
+  this.sigilos.setDepth(1); // Depth bajo para que queden detrás
   sigilo.setScale(0.2).refreshBody();
   sigilo.setVelocityY(Phaser.Math.Between(50, 100));
   sigilo.setAlpha(0.8);
@@ -548,7 +516,19 @@ activarSigilo(ninja, sigilo) {
 }
 
 recogerJarron(ninja, jarron) {
-  const textoDinero = this.add.text(jarron.x, jarron.y - 50, '$$$', { fontSize: '48px', fill: '#00ff00', fontFamily: 'Consolas', stroke: '#003300', strokeThickness: 2 }).setDepth(1000);
+  const valor = jarron.isOro ? 500 : 100;
+  const texto = jarron.isOro ? '+$500' : '+$100';
+  const color = jarron.isOro ? '#ffd700' : '#00ff00';
+  const strokeColor = jarron.isOro ? '#b8860b' : '#003300';
+  const strokeThickness = jarron.isOro ? 3 : 2;
+
+  const textoDinero = this.add.text(jarron.x, jarron.y - 50, texto, { 
+    fontSize: '48px', 
+    fill: color, 
+    fontFamily: 'Consolas', 
+    stroke: strokeColor, 
+    strokeThickness: strokeThickness 
+  }).setDepth(1000);
 
   this.tweens.add({
     targets: textoDinero,
@@ -560,42 +540,98 @@ recogerJarron(ninja, jarron) {
   });
 
   jarron.destroy();
-  this.puntaje += 100;
-  if (this.textoPuntaje) this.textoPuntaje.setText(`Puntaje: ${this.puntaje}`);
+  this.dinero += valor;
+  
+  if (this.textoDinero) this.textoDinero.setText(`Dinero: $${this.dinero}`);
 }
+
 
 mostrarGameOver() {
   if (this.gameOver) return;
   this.gameOver = true;
 
-  // Mostrar texto
-  const puntajeTotal = this.puntajeBaseMetros + this.puntajeBaseTiempo + this.puntaje;
+  const camCenterX = this.cameras.main.centerX;
+  const camCenterY = this.cameras.main.scrollY + this.cameras.main.height / 2;
+
+  const metrosHechos = Math.floor(this.metros);
+  let mejorGuardado = parseInt(localStorage.getItem('mejorPuntaje')) || 0;
+
+  if (metrosHechos > mejorGuardado) {
+    localStorage.setItem('mejorPuntaje', metrosHechos);
+    mejorGuardado = metrosHechos;
+  }
+
+  this.mejorPuntaje = mejorGuardado;
+
   this.textoGameOver = this.add.text(
-    this.cameras.main.centerX,
-    this.cameras.main.scrollY + this.cameras.main.height / 2,
-    `¡Game Over!\nPuntaje: ${puntajeTotal}`,
+    camCenterX,
+    camCenterY - 50,
+    `¡Game Over!\nPresiona [R] para reiniciar`,
     {
       fontSize: "40px",
-      color: "#000000",
-      fontFamily: "Arial",
+      color: "#b480f3",
+      stroke: "#330075",
+      strokeThickness: 3,
+      fontFamily: "American Jets",
       align: "center"
     }
-  ).setOrigin(0.5);
+  ).setOrigin(0.5).setDepth(1);
 
-  // Destruir personaje
+  this.textoMetros = this.add.text(
+    camCenterX,
+    camCenterY + 10,
+    `Metros hechos: ${metrosHechos}m`,
+    {
+      fontSize: "30px",
+      color: "#b480f3",
+      stroke: "#330075",
+      strokeThickness: 3,
+      fontFamily: "American Jets",
+      align: "center"
+    }
+  ).setOrigin(0.5).setDepth(1);
+
+  this.textoMejorPuntaje = this.add.text(
+    camCenterX,
+    camCenterY + 55,
+    `Mayor altura alcanzada: ${this.mejorPuntaje}m`,
+    {
+      fontSize: "28px",
+      color: "#b480f3",
+      stroke: "#330075",
+      strokeThickness: 3,
+      fontFamily: "American Jets",
+      align: "center"
+    }
+  ).setOrigin(0.5).setDepth(1);
+
+  this.textoDineroFinal = this.add.text(
+  camCenterX,
+  camCenterY + 95,
+  `Dinero total: $${this.dinero}`,
+  {
+    fontSize: "28px",
+    color: "#b480f3",
+    stroke: "#330075",
+    strokeThickness: 3,
+    fontFamily: "American Jets",
+    align: "center"
+  }
+).setOrigin(0.5).setDepth(1);
+
+  const textoAlto = this.textoGameOver.height + this.textoMetros.height + this.textoMejorPuntaje.height + this.textoDineroFinal.height + 80;
+
+  this.marcoGameOver = this.add.image(camCenterX, camCenterY, "marcolargo")
+    .setOrigin(0.5)
+    .setDepth(0)
+    .setScale(0.075, textoAlto / (this.textoGameOver.height / 0.075));
+
   this.ninja.destroy();
-
-  // Pausar físicas y temporizadores
   this.physics.pause();
-
-  // Pausar música
   if (this.musicaJuego.isPlaying) this.musicaJuego.pause();
   if (this.musicaMenu.isPlaying) this.musicaMenu.pause();
-
-  // Sonido random
-  const sonidoAleatorio = Phaser.Utils.Array.GetRandom(this.sonidosGameOver);
-  sonidoAleatorio.play();
 }
+
 
 generarSierraAleatoria() {
   const lado = Phaser.Math.Between(0, 1); // 0 = izquierda, 1 = derecha
@@ -660,11 +696,20 @@ generarLluviaShurikens() {
     const x = xIzq + i * separacionX;
     const aviso = this.add.image(x, cam.scrollY + this.avisoYRel, "!");
     aviso.setScale(0.02).setDepth(10);
+
+    // --- Parpadeo ---
+    this.tweens.add({
+      targets: aviso,
+      alpha: { from: 1, to: 0 },
+      yoyo: true,
+      repeat: 3            // 4 "idas", 4 "vueltas" (parpadeos completos)
+    });
+
     this.avisos.push({ aviso, x });
   }
 
   this.time.addEvent({
-    delay: 2500,
+    delay: 4000,
     callback: () => {
       if (this.gameOver) {
         this.avisos.forEach(({ aviso }) => aviso.destroy());
@@ -680,7 +725,7 @@ generarLluviaShurikens() {
 
       this.avisos.forEach(({ x }) => {
         const shuriken = this.physics.add.image(x, shurikenY, "shuriken");
-        shuriken.setScale(0.05).refreshBody();
+        shuriken.setScale(0.1).refreshBody();
         shuriken.setVelocityY(Phaser.Math.Between(250, 350));
 
         const giroVelocidad = Phaser.Math.Between(300, 800);
@@ -715,9 +760,56 @@ generarLluviaShurikens() {
   });
 }
 
+mostrarLogro() {
+  const escala = 0.025;
+  this.logroImagen.setScale(escala);
+  this.logroImagen.setOrigin(0.5, 0.5); // centro
+
+  this.logroImagen.setVisible(true);
+  this.logroSonido.play();
+
+  const cam = this.cameras.main;
+  const posY = cam.height - 80;
+
+  const anchoEscalado = this.logroImagen.width * escala;
+
+  const entradaX = cam.width - anchoEscalado / 2 - 20;
+  const salidaX = cam.width + anchoEscalado / 2 + 150;
+
+  // Empieza fuera de pantalla a la derecha
+  this.logroImagen.x = salidaX;
+  this.logroImagen.y = posY;
+
+  // Tween para entrar
+  this.tweens.add({
+    targets: this.logroImagen,
+    x: entradaX,
+    y: posY,
+    ease: 'Power2',
+    duration: 600,
+    onComplete: () => {
+      // Espera 2 segundos
+      this.time.delayedCall(2000, () => {
+        // Tween para salir
+        this.tweens.add({
+          targets: this.logroImagen,
+          x: salidaX,
+          y: posY,
+          ease: 'Power2',
+          duration: 600,
+          onComplete: () => {
+            this.logroImagen.setVisible(false);
+          }
+        });
+      });
+    }
+  });
+}
+
+
 update(time, delta) {
 
-  //Musica
+  // Musica
   this.actualizarMusica();
 
   // --- Si game over, salir y no ejecutar más lógica ---
@@ -743,12 +835,6 @@ update(time, delta) {
   // --- Si pausado, salir ---
   if (this.pausado) return;
 
-  // --- Luz ---
-  this.luz.y = this.cameras.main.scrollY + this.cameras.main.height - 10;
-  this.luzOffset += delta / 1000;
-  const oscilacion = Math.sin(this.luzOffset * 2) * this.luzOscilacion;
-  this.luz.y = this.cameras.main.scrollY + this.luzBaseY + oscilacion;
-  this.luz.x = this.cameras.main.scrollX + this.cameras.main.width / 2;
 
   // --- Game Over ---
   if (this.gameOver) {
@@ -900,7 +986,7 @@ update(time, delta) {
   }
 
   if ((this.cursors.down.isDown || this.input.keyboard.addKey('S').isDown) && this.puedeSaltar) {
-    this.ninja.setVelocityY(this.ninjaCurrentSpeed / 3);
+    this.ninja.setVelocityY(this.ninjaCurrentSpeed / 2);
   }
 
   // --- Destruir jarrones ---
@@ -919,7 +1005,6 @@ update(time, delta) {
   // --- Scroll de cámara ---
   let desplazamiento = 0;
   if (!this.pausado) {
-    this.tiempoAcumulado += delta;
 
     if (this.camSpeed < this.maxSpeed) {
       this.camSpeed += this.increment * (delta / 1000);
@@ -936,6 +1021,18 @@ update(time, delta) {
       this.cameras.main.width,
       this.cameras.main.height
     );
+
+    //Metros 
+  this.metrosTiempo += this.game.loop.delta / 1000;
+
+let t = Phaser.Math.Clamp(this.metrosTiempo / this.metrosDuracion, 0, 1);
+let velocidadActual = Phaser.Math.Linear(this.metrosVelInicial, this.metrosVelFinal, t);
+
+this.metros += velocidadActual * (this.game.loop.delta / 1000);
+
+let metrosMostrar = Math.floor(this.metros);
+this.contadorMetros.setText(`${metrosMostrar}m`);
+
 
     // Nueva capa tilemap si necesario
     const camTop = this.cameras.main.scrollY;
@@ -961,21 +1058,22 @@ update(time, delta) {
       }
     }
 
-  // --- Limite superior ---
-  const limiteSuperior = this.cameras.main.scrollY;
-  const distancia = this.ninja.y - limiteSuperior;
+    // --- Limite superior ---
+    const limiteSuperior = this.cameras.main.scrollY;
+    const distancia = this.ninja.y - limiteSuperior;
 
-  if (distancia <= 0) {
-    this.ninja.y = limiteSuperior;
-    this.ninja.setVelocityY(0);
-  } else if (distancia < 100) {
-    const factor = distancia / 100;
-    this.ninja.setVelocityY(this.ninja.body.velocity.y * factor);
+    if (distancia <= 0) {
+      this.ninja.y = limiteSuperior;
+      this.ninja.setVelocityY(0);
+    } else if (distancia < 100) {
+      const factor = distancia / 100;
+      this.ninja.setVelocityY(this.ninja.body.velocity.y * factor);
+    }
+
+    this.moverOverlapsEdificiosHaciaArriba();
   }
 
-  this.moverOverlapsEdificiosHaciaArriba();
-}
-// Actualizar posición Y de los avisos "!" para que sigan la cámara
+  // Actualizar posición Y de los avisos "!" para que sigan la cámara
   if (this.avisos && this.avisos.length > 0) {
     const camY = this.cameras.main.scrollY;
     this.avisos.forEach(({ aviso }) => {
@@ -983,38 +1081,7 @@ update(time, delta) {
     });
   }
 
-  // --- CRONÓMETRO ---
-const elapsed = (this.time.now - this.tiempoInicial) / 1000;
-this.textoCronometro.setText(` ${elapsed.toFixed(2)}s`);
-this.marcoCronometro.displayWidth = this.textoCronometro.width + 20;
-
-// --- METROS ---
-// Subir 4 metros por segundo, con centésimas
-const elapsedSegundos = (this.time.now - this.tiempoInicial) / 1000;
-this.metros = elapsedSegundos * 4;
-
-this.textoMetros.setText(` ${this.metros.toFixed(2)}m`);
-this.marcoMetros.displayWidth = this.textoMetros.width + 20;
-
-// --- PUNTAJE ---
-// Puntos por metros
-const puntosPorMetros = Math.floor(this.metros) * 1;
-
-// Puntos por tiempo
-const segundosVivos = Math.floor(elapsedSegundos);
-const puntosPorTiempo = segundosVivos * 10;
-
-// Total (sumando puntos por jarrones)
-this.puntajeBaseMetros = puntosPorMetros;
-this.puntajeBaseTiempo = puntosPorTiempo;
-
-const puntajeTotal = this.puntajeBaseMetros + this.puntajeBaseTiempo + this.puntaje;
-
-// Mostrar
-this.textoPuntaje.setText(` ${puntajeTotal} pts`);
-this.marcoPuntaje.displayWidth = this.textoPuntaje.width + 20;
-
-// --- ESC para pausa ---
+  // --- ESC para pausa ---
   if (Phaser.Input.Keyboard.JustDown(this.teclaEsc)) {
     this.botonPausa.setScale(0.035);
 
@@ -1025,5 +1092,15 @@ this.marcoPuntaje.displayWidth = this.textoPuntaje.width + 20;
     this.togglePausa();
   }
 
+  //LOGRO
+  if (!this.logroMostrado) {
+    const arribaPresionada = this.teclasArribaAbajo.arriba1.isDown || this.teclasArribaAbajo.arriba2.isDown;
+    const abajoPresionada = this.teclasArribaAbajo.abajo1.isDown || this.teclasArribaAbajo.abajo2.isDown;
+
+    if (this.puedeSaltar && arribaPresionada && abajoPresionada) {
+      this.mostrarLogro();
+      this.logroMostrado = true;
+    }
+  }
 }
 }
