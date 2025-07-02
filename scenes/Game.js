@@ -18,6 +18,8 @@ export default class Game extends Phaser.Scene {
   this.textoCronometro = null;
   this.marcoCronometro = null;
   this.puntaje = 0;
+  this.puntajeBaseMetros = 0;
+  this.puntajeBaseTiempo = 0;
   this.textoPuntaje = null;
   this.segundosPrevios = 0;
   this.metros = 0;
@@ -98,9 +100,35 @@ export default class Game extends Phaser.Scene {
     frameWidth: 196,
     frameHeight: 204
   });
+
+  //Musica
+  this.load.audio('MusicaJuego', 'public/assets/MusicaJuego.mp3');
+  this.load.audio('MusicaMenu', 'public/assets/MusicaMenu.mp3');
+
+  //Sonidos
+  this.load.audio("perder1", "public/assets/perder1.mp3");
+  this.load.audio("perder2", "public/assets/perder2.mp3");
+  this.load.audio("perder3", "public/assets/perder3.mp3");
+  this.load.audio("perder4", "public/assets/perder4.mp3");
 }
 
   create() {
+
+  // --- MÚSICA ---
+  this.musicaJuego = this.sound.add('MusicaJuego', { loop: true, volume: 0.5 });
+  this.musicaMenu = this.sound.add('MusicaMenu', { loop: true, volume: 0.5 });
+
+  this.musicaJuego.play();
+
+  //Sonidos de perder
+  this.sonidosGameOver = [
+  this.sound.add('perder1'),
+  this.sound.add('perder2'),
+  this.sound.add('perder3'),
+  this.sound.add('perder4')
+];
+
+
   // --- CONFIGURACIÓN INICIAL Y MAPA ---
   this.map = this.make.tilemap({ key: 'mapa' });
   const tileset = this.map.addTilesetImage('Ventanas', 'Ventana');
@@ -203,26 +231,97 @@ export default class Game extends Phaser.Scene {
   });
 
   // --- CRONÓMETRO ---
+  const baseX = 50;
+  const baseY = 50;
+
 // Guardar tiempo inicial
 this.tiempoInicial = this.time.now;
 
+// Crear marco (por ejemplo con tu sprite "marcolargo")
+this.marcoCronometro = this.add.image(baseX, baseY, "marcolargo")
+.setOrigin(0, 0.5)
+.setDepth(999)
+.setScrollFactor(0);
+
 // Crear texto
-this.textoCronometro = this.add.text(50, 50, '0.00s', {
+this.textoCronometro = this.add.text(baseX, baseY, '0.00s', {
   fontSize: '32px',
   fill: '#fff',
   fontFamily: 'Consolas'
 })
+.setOrigin(0, 0.5)
 .setDepth(1000)
-.setScrollFactor(0);
-
-// Crear marco (por ejemplo con tu sprite "marcolargo")
-this.marcoCronometro = this.add.image(50, 50, "marcolargo")
-.setDepth(999)
 .setScrollFactor(0);
 
 // Ajustar escala inicial
 this.marcoCronometro.displayWidth = this.textoCronometro.width + 20; // margen extra
 this.marcoCronometro.displayHeight = this.textoCronometro.height + 10; // opcional
+
+// --- METROS ---
+const metrosX = 50; // Puedes cambiar la posición si querés
+const metrosY = 100;
+
+this.textoMetros = this.add.text(metrosX, metrosY, '0m', {
+  fontSize: '32px',
+  fill: '#fff',
+  fontFamily: 'Consolas'
+})
+.setOrigin(0, 0.5)
+.setDepth(1000)
+.setScrollFactor(0);
+
+// Marco para metros, si querés usar el mismo marco gráfico
+this.marcoMetros = this.add.image(metrosX, metrosY, "marcolargo")
+  .setOrigin(0, 0.5)
+  .setDepth(999)
+  .setScrollFactor(0);
+
+// Ajustar tamaño inicial
+this.marcoMetros.displayWidth = this.textoMetros.width + 40;
+this.marcoMetros.displayHeight = this.textoMetros.height + 10;
+
+//PUNTOS
+const baseXPuntaje = 50;
+const baseYPuntaje = 150;
+
+this.marcoPuntaje = this.add.image(baseXPuntaje, baseYPuntaje, "marcolargo")
+  .setOrigin(0, 0.5)
+  .setDepth(999)
+  .setScrollFactor(0);
+
+this.textoPuntaje = this.add.text(baseXPuntaje, baseYPuntaje, '0 pts', {
+  fontSize: '32px',
+  fill: '#fff',
+  fontFamily: 'Consolas'
+})
+.setOrigin(0, 0.5)
+.setDepth(1000)
+.setScrollFactor(0);
+
+// Ajustar ancho inicial
+this.marcoPuntaje.displayWidth = this.textoPuntaje.width + 20;
+this.marcoPuntaje.displayHeight = this.textoPuntaje.height + 10;
+
+}
+
+// --- ACTUALIZAR MÚSICA ---
+actualizarMusica() {
+  if (this.gameOver) {
+    // Si game over, no hacer nada (música queda pausada)
+    return;
+  }
+
+  if (!this.pausado) {
+    if (!this.musicaJuego.isPlaying) {
+      if (this.musicaMenu.isPlaying) this.musicaMenu.pause();
+      this.musicaJuego.resume();
+    }
+  } else {
+    if (!this.musicaMenu.isPlaying) {
+      if (this.musicaJuego.isPlaying) this.musicaJuego.pause();
+      this.musicaMenu.resume();
+    }
+  }
 }
 
 // --- FUNCIONES DE ANIMACIONES ---
@@ -246,7 +345,6 @@ crearAnimaciones() {
 
 // --- FUNCIONES DE PAUSA ---
 configurarBotonPausa() {
-
   this.cortinaPausa = this.add.rectangle(this.cameras.main.width / 2, this.cameras.main.height / 2, this.cameras.main.width, this.cameras.main.height, 0x000000, 0.75)
     .setScrollFactor(0)
     .setDepth(999)
@@ -258,14 +356,12 @@ configurarBotonPausa() {
     .setDepth(1000)
     .setScale(0.04);
 
-  // Fondo menú pausa (oculto inicialmente)
   this.menuPausaFondo = this.add.image(this.cameras.main.width / 2, this.cameras.main.height / 2, "FondoMenu")
     .setScrollFactor(0)
     .setDepth(1001)
     .setVisible(false)
     .setScale(0.3);
 
-  // Botón Reiniciar
   this.botonReiniciar = this.add.image(this.cameras.main.width / 2, this.cameras.main.height / 2 - 50, "ReiniciarNegro")
     .setScrollFactor(0)
     .setDepth(1002)
@@ -273,7 +369,6 @@ configurarBotonPausa() {
     .setScale(0.3)
     .setVisible(false);
 
-  // Botón Salir
   this.botonSalir = this.add.image(this.cameras.main.width / 2, this.cameras.main.height / 2 + 50, "SalirNegro")
     .setScrollFactor(0)
     .setDepth(1002)
@@ -283,67 +378,76 @@ configurarBotonPausa() {
 
   this.pausado = false;
 
-  this.botonPausa.on("pointerdown", () => { this.botonPausa.setScale(0.035); });
-  this.botonPausa.on("pointerup", () => {
-    this.botonPausa.setScale(0.04);
-    this.pausado = !this.pausado;
-
-    if (this.pausado) {
-      this.physics.pause();
-      this.time.paused = true;
-      this.ninja.anims.pause();
-      this.botonPausa.setTexture("BotonPlay");
-      this.cortinaPausa.setVisible(true);
-
-      // Mostrar menú pausa
-      this.menuPausaFondo.setVisible(true);
-      this.botonReiniciar.setVisible(true);
-      this.botonSalir.setVisible(true);
-    } else {
-      this.physics.resume();
-      this.time.paused = false;
-      this.ninja.anims.resume();
-      this.botonPausa.setTexture("BotonPausa");
-      this.cortinaPausa.setVisible(false);
-
-      // Ocultar menú pausa
-      this.menuPausaFondo.setVisible(false);
-      this.botonReiniciar.setVisible(false);
-      this.botonSalir.setVisible(false);
-    }
+  this.botonPausa.on("pointerdown", () => {
+    this.botonPausa.setScale(0.035);
   });
 
-  this.botonPausa.on("pointerout", () => { this.botonPausa.setScale(0.04); });
+  this.botonPausa.on("pointerup", () => {
+    this.botonPausa.setScale(0.04);
+    this.togglePausa();
+  });
 
-  /// Evento para botón Reiniciar
-this.botonReiniciar.on("pointerdown", () => {
-  this.physics.resume();
-  this.time.paused = false;
-  this.scene.restart();
-});
-this.botonReiniciar.on("pointerover", () => {
-  this.botonReiniciar.setTexture("ReiniciarRosa");
-  this.botonReiniciar.setScale(0.4);
-});
-this.botonReiniciar.on("pointerout", () => {
-  this.botonReiniciar.setTexture("ReiniciarNegro");
-  this.botonReiniciar.setScale(0.3);
-});
+  this.botonPausa.on("pointerout", () => {
+    this.botonPausa.setScale(0.04);
+  });
 
-  // Evento para botón Salir
-this.botonSalir.on("pointerdown", () => {
-  this.physics.resume();
-  this.time.paused = false;
-  this.scene.start("menu");
-});
-this.botonSalir.on("pointerover", () => {
-  this.botonSalir.setTexture("SalirRosa");
-  this.botonSalir.setScale(0.4);
-});
-this.botonSalir.on("pointerout", () => {
-  this.botonSalir.setTexture("SalirNegro");
-  this.botonSalir.setScale(0.3);
-});
+  this.botonReiniciar.on("pointerdown", () => {
+    this.physics.resume();
+    this.time.paused = false;
+    this.musicaJuego.stop();
+    this.musicaMenu.stop();
+    this.scene.restart();
+  });
+  this.botonReiniciar.on("pointerover", () => {
+    this.botonReiniciar.setTexture("ReiniciarRosa");
+    this.botonReiniciar.setScale(0.4);
+  });
+  this.botonReiniciar.on("pointerout", () => {
+    this.botonReiniciar.setTexture("ReiniciarNegro");
+    this.botonReiniciar.setScale(0.3);
+  });
+
+  this.botonSalir.on("pointerdown", () => {
+    this.physics.resume();
+    this.time.paused = false;
+    this.scene.start("menu");
+  });
+  this.botonSalir.on("pointerover", () => {
+    this.botonSalir.setTexture("SalirRosa");
+    this.botonSalir.setScale(0.4);
+  });
+  this.botonSalir.on("pointerout", () => {
+    this.botonSalir.setTexture("SalirNegro");
+    this.botonSalir.setScale(0.3);
+  });
+
+  // Tecla ESC
+  this.teclaEsc = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+}
+
+togglePausa() {
+  if (this.gameOver) return;
+  this.pausado = !this.pausado;
+
+  if (this.pausado) {
+    this.physics.pause();
+    this.time.paused = true;
+    if (this.ninja.anims) this.ninja.anims.pause();
+    this.botonPausa.setTexture("BotonPlay");
+    this.cortinaPausa.setVisible(true);
+    this.menuPausaFondo.setVisible(true);
+    this.botonReiniciar.setVisible(true);
+    this.botonSalir.setVisible(true);
+  } else {
+    this.physics.resume();
+    this.time.paused = false;
+    if (this.ninja.anims) this.ninja.anims.resume();
+    this.botonPausa.setTexture("BotonPausa");
+    this.cortinaPausa.setVisible(false);
+    this.menuPausaFondo.setVisible(false);
+    this.botonReiniciar.setVisible(false);
+    this.botonSalir.setVisible(false);
+  }
 }
 
 // --- FUNCIONES AUXILIARES DE JARRONES ---
@@ -460,27 +564,37 @@ recogerJarron(ninja, jarron) {
   if (this.textoPuntaje) this.textoPuntaje.setText(`Puntaje: ${this.puntaje}`);
 }
 
-  mostrarGameOver() {
+mostrarGameOver() {
+  if (this.gameOver) return;
   this.gameOver = true;
-  this.ninja.setVelocity(0, 0);
-  this.ninja.setVisible(false);
 
-  // Detener la física y los temporizadores
-  this.physics.pause();
-  this.time.paused = true;
-
-  // Mostrar texto de Game Over
-  this.gameOverText = this.add.text(
-    this.cameras.main.scrollX + this.cameras.main.width / 2,
+  // Mostrar texto
+  const puntajeTotal = this.puntajeBaseMetros + this.puntajeBaseTiempo + this.puntaje;
+  this.textoGameOver = this.add.text(
+    this.cameras.main.centerX,
     this.cameras.main.scrollY + this.cameras.main.height / 2,
-    'GAME OVER\nPresiona R para reiniciar',
+    `¡Game Over!\nPuntaje: ${puntajeTotal}`,
     {
-      fontSize: '48px',
-      fill: '#ff0000',
-      fontFamily: 'Consolas',
-      align: 'center'
+      fontSize: "40px",
+      color: "#000000",
+      fontFamily: "Arial",
+      align: "center"
     }
   ).setOrigin(0.5);
+
+  // Destruir personaje
+  this.ninja.destroy();
+
+  // Pausar físicas y temporizadores
+  this.physics.pause();
+
+  // Pausar música
+  if (this.musicaJuego.isPlaying) this.musicaJuego.pause();
+  if (this.musicaMenu.isPlaying) this.musicaMenu.pause();
+
+  // Sonido random
+  const sonidoAleatorio = Phaser.Utils.Array.GetRandom(this.sonidosGameOver);
+  sonidoAleatorio.play();
 }
 
 generarSierraAleatoria() {
@@ -520,6 +634,10 @@ generarSierraAleatoria() {
 }
 
 generarLluviaShurikens() {
+  if (this.gameOver) {
+    return;
+  }
+
   const cam = this.cameras.main;
 
   // Límites de edificios
@@ -527,54 +645,49 @@ generarLluviaShurikens() {
   const xDer = this.edificio2Overlap.x - this.edificio2Overlap.displayWidth / 2;
 
   const anchoLibre = xDer - xIzq;
-  const numShurikens = 12; // Cantidad de shurikens
+  const numShurikens = 12;
   const separacionX = anchoLibre / (numShurikens + 1);
 
-  // Línea fija para avisos - guardamos la Y relativa a la cámara
-  this.avisoYRel = 150; // posición Y relativa a la cámara
+  this.avisoYRel = 75;
 
-  // Índice libre para hueco
   const indiceLibre = Phaser.Math.Between(1, numShurikens);
 
-  // Array para guardar los avisos "!" y sus posiciones X
   this.avisos = [];
 
-  // Mostrar avisos "!" en línea fija
   for (let i = 1; i <= numShurikens; i++) {
-    if (i === indiceLibre) continue; // Hueco libre
+    if (i === indiceLibre) continue;
 
     const x = xIzq + i * separacionX;
-    // Posición Y inicial acorde a la cámara
     const aviso = this.add.image(x, cam.scrollY + this.avisoYRel, "!");
     aviso.setScale(0.02).setDepth(10);
     this.avisos.push({ aviso, x });
   }
 
-  // Después de un delay, destruir avisos y crear shurikens cayendo desde arriba
   this.time.addEvent({
-    delay: 2500, // Tiempo para que el jugador vea el aviso antes de que caigan
+    delay: 2500,
     callback: () => {
-      // Destruir avisos
+      if (this.gameOver) {
+        this.avisos.forEach(({ aviso }) => aviso.destroy());
+        this.avisos = [];
+        return;
+      }
+
       this.avisos.forEach(({ aviso }) => {
         if (aviso && aviso.active) aviso.destroy();
       });
 
-      // Crear shurikens en Y alto, mismos X que avisos
-      const shurikenY = cam.scrollY - 100; // Generar arriba de la cámara para que caigan
+      const shurikenY = cam.scrollY - 100;
 
       this.avisos.forEach(({ x }) => {
         const shuriken = this.physics.add.image(x, shurikenY, "shuriken");
         shuriken.setScale(0.05).refreshBody();
         shuriken.setVelocityY(Phaser.Math.Between(250, 350));
-        
-        // Giro aleatorio (sentido y velocidad)
-        const giroVelocidad = Phaser.Math.Between(300, 800); // velocidad angular entre 300 y 800
-        const giroSentido = Phaser.Math.Between(0, 1) === 0 ? -1 : 1; // -1 o 1
-        shuriken.setAngularVelocity(giroVelocidad * giroSentido);
 
+        const giroVelocidad = Phaser.Math.Between(300, 800);
+        const giroSentido = Phaser.Math.Between(0, 1) === 0 ? -1 : 1;
+        shuriken.setAngularVelocity(giroVelocidad * giroSentido);
         shuriken.setDepth(5);
 
-        // Destruir si baja demasiado
         this.time.addEvent({
           delay: 5000,
           callback: () => {
@@ -583,7 +696,6 @@ generarLluviaShurikens() {
           callbackScope: this
         });
 
-        // Colisión con ninja
         this.physics.add.overlap(this.ninja, shuriken, () => {
           if (!this.tieneSigilo) {
             this.mostrarGameOver();
@@ -591,12 +703,11 @@ generarLluviaShurikens() {
         });
       });
 
-      this.avisos = []; // Limpiar array después de crear shurikens
+      this.avisos = [];
     },
     callbackScope: this
   });
 
-  // Repetir lluvia en 15-25 seg
   this.time.addEvent({
     delay: Phaser.Math.Between(15000, 25000),
     callback: this.generarLluviaShurikens,
@@ -605,6 +716,33 @@ generarLluviaShurikens() {
 }
 
 update(time, delta) {
+
+  //Musica
+  this.actualizarMusica();
+
+  // --- Si game over, salir y no ejecutar más lógica ---
+  if (this.gameOver) {
+    // Solo permitir reiniciar con R si querés
+    if (this.input.keyboard.addKey('R').isDown) {
+      this.physics.resume();
+      this.time.paused = false;
+      this.scene.restart();
+    }
+    return;
+  }
+
+  // 🔥 Esc y pausa
+  if (Phaser.Input.Keyboard.JustDown(this.teclaEsc)) {
+    this.botonPausa.setScale(0.035);
+    this.time.delayedCall(100, () => {
+      this.botonPausa.setScale(0.04);
+    });
+    this.togglePausa();
+  }
+
+  // --- Si pausado, salir ---
+  if (this.pausado) return;
+
   // --- Luz ---
   this.luz.y = this.cameras.main.scrollY + this.cameras.main.height - 10;
   this.luzOffset += delta / 1000;
@@ -617,9 +755,20 @@ update(time, delta) {
     if (this.input.keyboard.addKey('R').isDown) {
       this.physics.resume();
       this.time.paused = false;
+      this.musicaJuego.stop();
+      this.musicaMenu.stop();
       this.scene.restart();
     }
     return;
+  }
+
+  // 🔥 Detectar Esc ANTES de verificar pausa
+  if (Phaser.Input.Keyboard.JustDown(this.teclaEsc)) {
+    this.botonPausa.setScale(0.035);
+    this.time.delayedCall(100, () => {
+      this.botonPausa.setScale(0.04);
+    });
+    this.togglePausa();
   }
 
   // --- Pausa ---
@@ -836,8 +985,45 @@ update(time, delta) {
 
   // --- CRONÓMETRO ---
 const elapsed = (this.time.now - this.tiempoInicial) / 1000;
-this.textoCronometro.setText(`${elapsed.toFixed(2)}s`);
+this.textoCronometro.setText(` ${elapsed.toFixed(2)}s`);
 this.marcoCronometro.displayWidth = this.textoCronometro.width + 20;
+
+// --- METROS ---
+// Subir 4 metros por segundo, con centésimas
+const elapsedSegundos = (this.time.now - this.tiempoInicial) / 1000;
+this.metros = elapsedSegundos * 4;
+
+this.textoMetros.setText(` ${this.metros.toFixed(2)}m`);
+this.marcoMetros.displayWidth = this.textoMetros.width + 20;
+
+// --- PUNTAJE ---
+// Puntos por metros
+const puntosPorMetros = Math.floor(this.metros) * 1;
+
+// Puntos por tiempo
+const segundosVivos = Math.floor(elapsedSegundos);
+const puntosPorTiempo = segundosVivos * 10;
+
+// Total (sumando puntos por jarrones)
+this.puntajeBaseMetros = puntosPorMetros;
+this.puntajeBaseTiempo = puntosPorTiempo;
+
+const puntajeTotal = this.puntajeBaseMetros + this.puntajeBaseTiempo + this.puntaje;
+
+// Mostrar
+this.textoPuntaje.setText(` ${puntajeTotal} pts`);
+this.marcoPuntaje.displayWidth = this.textoPuntaje.width + 20;
+
+// --- ESC para pausa ---
+  if (Phaser.Input.Keyboard.JustDown(this.teclaEsc)) {
+    this.botonPausa.setScale(0.035);
+
+    this.time.delayedCall(100, () => {
+      this.botonPausa.setScale(0.04);
+    });
+
+    this.togglePausa();
+  }
 
 }
 }
